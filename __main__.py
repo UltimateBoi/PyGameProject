@@ -216,8 +216,9 @@ def main():
             else:
                 # Mouse click to place a tower
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    x, y = pygame.mouse.get_pos()
-                    game.towers.append(Tower(x, y))
+                    if event.button == 1:
+                        x, y = pygame.mouse.get_pos()
+                        game.towers.append(Tower(x, y))
 
         pygame.display.update()
         clock.tick(FPS)
