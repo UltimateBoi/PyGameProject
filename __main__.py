@@ -1,6 +1,9 @@
 import pygame
 import math
 import random
+import sys
+from MainMenu import MainMenu
+from MapSelector import MapSelector
 
 # Initialize Pygame
 pygame.init()
@@ -176,14 +179,24 @@ class Game:
 # Main Game Loop
 def main():
     game = Game()
+    main_menu = MainMenu("Player1")
+    map_selector = MapSelector()
+    current_screen = "main_menu"
 
     running = True
     while running:
         screen.fill(WHITE)
-        game.spawn_bloon()
-        game.update_bloons()
-        game.update_towers()
-        game.update_darts()
+        
+        if current_screen == "main_menu":
+            main_menu.draw(screen)
+        elif current_screen == "map_selector":
+            map_selector.draw(screen)
+        else:
+            game.spawn_bloon()
+            game.update_bloons()
+            game.update_towers()
+            game.update_darts()
+            game.draw()
 
         # Event Handling
         for event in pygame.event.get():
@@ -191,12 +204,20 @@ def main():
                 running = False
             elif event.type == pygame.VIDEORESIZE:
                 game.resize(event.w, event.h)
-            # Mouse click to place a tower
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                x, y = pygame.mouse.get_pos()
-                game.towers.append(Tower(x, y))
-
-        game.draw()
+            elif current_screen == "main_menu":
+                result = main_menu.handle_events(event)
+                if result == "map_selector":
+                    current_screen = "map_selector"
+            elif current_screen == "map_selector":
+                result = map_selector.handle_events(event)
+                if result and result.startswith("map_"):
+                    current_screen = "game"
+                    # Load the selected map here
+            else:
+                # Mouse click to place a tower
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    x, y = pygame.mouse.get_pos()
+                    game.towers.append(Tower(x, y))
 
         pygame.display.update()
         clock.tick(FPS)
