@@ -1,7 +1,5 @@
 import pygame
 import math
-import random
-import sys
 from MainMenu import MainMenu
 from MapSelector import MapSelector
 
@@ -115,7 +113,7 @@ class Game:
         self.round = 1
         self.lives = 100
         self.money = 500
-        # Example path starting from the bottom left
+        # Example path starting from the bottom left TODO: change paths for different maps. Will be stored as json files
         self.path = [(4, 400), (171, 400), (171, 184), (362, 184), (362, 608), (97, 608), (97, 771), (757, 771), (757, 526), (537, 526), (537, 326), (755, 326), (755, 91), (471, 91), (471, 4)]
         self.original_path = self.path.copy()
 
@@ -179,7 +177,7 @@ class Game:
 # Main Game Loop
 def main():
     game = Game()
-    main_menu = MainMenu("Player1")
+    main_menu = MainMenu("Player1", SCREEN_WIDTH, SCREEN_HEIGHT)
     map_selector = MapSelector()
     current_screen = "main_menu"
 
@@ -210,7 +208,9 @@ def main():
                     current_screen = "map_selector"
             elif current_screen == "map_selector":
                 result = map_selector.handle_events(event)
-                if result and result.startswith("map_"):
+                if result == "main_menu":
+                    current_screen = "main_menu"
+                elif result and result.startswith("map_"):
                     current_screen = "game"
                     # Load the selected map here
             else:
@@ -219,6 +219,13 @@ def main():
                     if event.button == 1:
                         x, y = pygame.mouse.get_pos()
                         game.towers.append(Tower(x, y))
+
+        # Update sliders for smooth animation
+        if current_screen == "main_menu":
+            main_menu.settings_menu.update()
+        elif current_screen == "map_selector":
+            # Update any sliders in the map selector if needed
+            pass
 
         pygame.display.update()
         clock.tick(FPS)

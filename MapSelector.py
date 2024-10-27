@@ -1,5 +1,4 @@
 import pygame
-import sys
 
 class MapSelector:
     def __init__(self):
@@ -32,4 +31,9 @@ class MapSelector:
                 for i, rect in enumerate(self.thumbnail_rects):
                     if rect.collidepoint(event.pos):
                         return f"map_{i + 1}"
+        elif event.type == pygame.MOUSEWHEEL:
+            self.current_page += event.y
+        elif event.type == pygame.MOUSEMOTION:
+            if event.buttons[0]:  # Left mouse button is held down
+                self.current_page += event.rel[1] // 10  # Adjust the divisor for sensitivity
         return None
