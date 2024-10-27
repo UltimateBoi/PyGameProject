@@ -1,13 +1,14 @@
 import pygame
 import math
-import random
+from MainMenu import MainMenu
+from MapSelector import MapSelector
 
 # Initialize Pygame
 pygame.init()
 
 # Screen settings
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)  # Create a resizable screen
 pygame.display.set_caption("Tower Defense Game")
 
 # Colors
@@ -22,11 +23,11 @@ tower_img = pygame.image.load('assets/tower.png')
 background_img = pygame.image.load('assets/background.png')
 
 # Resize tower image
-tower_img = pygame.transform.scale(tower_img, (80, 80))
+tower_img = pygame.transform.scale(tower_img, (80, 80))  # Resize tower image
 
 # FPS and clock
 FPS = 60
-clock = pygame.time.Clock()
+clock = pygame.time.Clock()  # Create a clock object to manage FPS
 
 # Bloon Class (Enemy)
 class Bloon:
@@ -55,7 +56,7 @@ class Bloon:
                 self.path_pos += 1
 
     def draw(self):
-        screen.blit(self.image, self.rect.topleft)
+        screen.blit(self.image, self.rect.topleft)  # Draw the bloon on the screen
 
 # Dart Class (Projectile)
 class Dart:
@@ -63,7 +64,7 @@ class Dart:
         self.rect = pygame.Rect(x, y, 5, 5)
         self.speed = 5
         self.target = target
-        self.dx, self.dy = self.calculate_velocity()
+        self.dx, self.dy = self.calculate_velocity()  # Calculate initial velocity
 
     def calculate_velocity(self):
         dx, dy = self.target.rect.centerx - self.rect.centerx, self.target.rect.centery - self.rect.centery
@@ -77,7 +78,7 @@ class Dart:
         self.rect.y += self.dy
 
     def draw(self):
-        pygame.draw.rect(screen, BLACK, self.rect)
+        pygame.draw.rect(screen, BLACK, self.rect)  # Draw the dart on the screen
 
 # Tower Class
 class Tower:
@@ -95,13 +96,13 @@ class Tower:
         for bloon in bloons:
             dist = math.sqrt((bloon.rect.centerx - self.rect.centerx)**2 + (bloon.rect.centery - self.rect.centery)**2)
             if dist < self.range and self.last_shot >= self.cooldown:
-                darts.append(Dart(self.rect.centerx, self.rect.centery, bloon))
+                darts.append(Dart(self.rect.centerx, self.rect.centery, bloon))  # Create a new dart
                 self.last_shot = 0
                 break
         self.last_shot += 1
 
     def draw(self):
-        screen.blit(self.image, self.rect.topleft)
+        screen.blit(self.image, self.rect.topleft)  # Draw the tower on the screen
 
 # Game Class
 class Game:
@@ -112,40 +113,40 @@ class Game:
         self.round = 1
         self.lives = 100
         self.money = 500
-        # Example path starting from the bottom left
+        # Example path starting from the bottom left TODO: change paths for different maps. Will be stored as json files
         self.path = [(4, 400), (171, 400), (171, 184), (362, 184), (362, 608), (97, 608), (97, 771), (757, 771), (757, 526), (537, 526), (537, 326), (755, 326), (755, 91), (471, 91), (471, 4)]
         self.original_path = self.path.copy()
 
     def spawn_bloon(self):
         # Spawn a bloon every few seconds
         if len(self.bloons) < self.round * 5:
-            self.bloons.append(Bloon(self.path))
+            self.bloons.append(Bloon(self.path))  # Add a new bloon to the list
 
     def update_bloons(self):
         for bloon in self.bloons[:]:
             bloon.move()
             if bloon.path_pos >= len(bloon.path) - 1:
                 self.bloons.remove(bloon)
-                self.lives -= 1
+                self.lives -= 1  # Decrease lives if bloon reaches the end
             if bloon.health <= 0:
                 self.bloons.remove(bloon)
-                self.money += 1
+                self.money += 1  # Increase money if bloon is destroyed
 
     def update_towers(self):
         for tower in self.towers:
-            tower.shoot(self.bloons, self.darts)
+            tower.shoot(self.bloons, self.darts)  # Towers shoot at bloons
 
     def update_darts(self):
         for dart in self.darts[:]:
             dart.move()
             for bloon in self.bloons:
                 if dart.rect.colliderect(bloon.rect):
-                    bloon.health -= 50
+                    bloon.health -= 50  # Decrease bloon health if hit by dart
                     self.darts.remove(dart)
                     break
 
     def draw(self):
-        screen.blit(background_img, (0, 0))
+        screen.blit(background_img, (0, 0))  # Draw the background
 
         for bloon in self.bloons:
             bloon.draw()
@@ -170,38 +171,66 @@ class Game:
     def resize(self, new_width, new_height):
         global SCREEN_WIDTH, SCREEN_HEIGHT
         SCREEN_WIDTH, SCREEN_HEIGHT = new_width, new_height
-        screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
-        self.path = [(int(x * new_width / 800), int(y * new_height / 600)) for x, y in self.original_path]
+        screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)  # Adjust screen size
+        self.path = [(int(x * new_width / 800), int(y * new_height / 600)) for x, y in self.original_path]  # Adjust path
 
 # Main Game Loop
 def main():
     game = Game()
+    main_menu = MainMenu("Player1", SCREEN_WIDTH, SCREEN_HEIGHT)
+    map_selector = MapSelector()
+    current_screen = "main_menu"
 
     running = True
     while running:
         screen.fill(WHITE)
-        game.spawn_bloon()
-        game.update_bloons()
-        game.update_towers()
-        game.update_darts()
+        
+        if current_screen == "main_menu":
+            main_menu.draw(screen)
+        elif current_screen == "map_selector":
+            map_selector.draw(screen)
+        else:
+            game.spawn_bloon()  # Spawn new bloons
+            game.update_bloons()  # Update bloon positions and states
+            game.update_towers()  # Update tower actions
+            game.update_darts()  # Update dart positions and collisions
+            game.draw()  # Draw all game elements
 
         # Event Handling
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
+                running = False  # Exit the game loop
             elif event.type == pygame.VIDEORESIZE:
-                game.resize(event.w, event.h)
-            # Mouse click to place a tower
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                x, y = pygame.mouse.get_pos()
-                game.towers.append(Tower(x, y))
+                game.resize(event.w, event.h)  # Handle screen resize
+            elif current_screen == "main_menu":
+                result = main_menu.handle_events(event)
+                if result == "map_selector":
+                    current_screen = "map_selector"
+            elif current_screen == "map_selector":
+                result = map_selector.handle_events(event)
+                if result == "main_menu":
+                    current_screen = "main_menu"
+                elif result and result.startswith("map_"):
+                    current_screen = "game"
+                    # Load the selected map here
+            else:
+                # Mouse click to place a tower
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        x, y = pygame.mouse.get_pos()
+                        game.towers.append(Tower(x, y))  # Place a new tower
 
-        game.draw()
+        # Update sliders for smooth animation
+        if current_screen == "main_menu":
+            main_menu.settings_menu.update()
+        elif current_screen == "map_selector":
+            # Update any sliders in the map selector if needed
+            pass
 
         pygame.display.update()
-        clock.tick(FPS)
+        clock.tick(FPS)  # Maintain the frame rate
 
     pygame.quit()
 
 if __name__ == "__main__":
-    main()
+    main()  # Start the game
