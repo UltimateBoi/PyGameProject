@@ -59,9 +59,13 @@ class Bloon:
         screen.blit(self.image, self.rect.topleft)  # Draw the bloon on the screen
 
 # Dart Class (Projectile)
+dart_img = pygame.image.load('assets/dart.png')
+dart_img = pygame.transform.scale(dart_img, (20, 35))  # Resize dart image
+
 class Dart:
     def __init__(self, x, y, target):
-        self.rect = pygame.Rect(x, y, 5, 5)
+        self.image = dart_img
+        self.rect = self.image.get_rect(center=(x, y))
         self.speed = 5
         self.target = target
         self.dx, self.dy = self.calculate_velocity()  # Calculate initial velocity
@@ -78,7 +82,7 @@ class Dart:
         self.rect.y += self.dy
 
     def draw(self):
-        pygame.draw.rect(screen, BLACK, self.rect)  # Draw the dart on the screen
+        screen.blit(self.image, self.rect.topleft)  # Draw the dart on the screen
 
 # Tower Class
 class Tower:
@@ -178,7 +182,7 @@ class Game:
 def main():
     game = Game()
     main_menu = MainMenu("Player1", SCREEN_WIDTH, SCREEN_HEIGHT)
-    map_selector = MapSelector()
+    map_selector = MapSelector(SCREEN_WIDTH, SCREEN_HEIGHT)
     current_screen = "main_menu"
 
     running = True
