@@ -2,13 +2,15 @@ import pygame
 import math
 from MainMenu import MainMenu
 from MapSelector import MapSelector
+from towers import Tower, Dart
+from ui import TowerSidebar
 
 # Initialize Pygame
 pygame.init()
 
 # Screen settings
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)  # Create a resizable screen
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
 pygame.display.set_caption("Tower Defense Game")
 
 # Colors
@@ -17,22 +19,18 @@ RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 BLACK = (0, 0, 0)
 
-# Load images (add images in your assets folder, replace "bloon.png" and "tower.png")
-bloon_img = pygame.image.load('assets/bloon.png')
-tower_img = pygame.image.load('assets/tower.png')
-background_img = pygame.image.load('assets/background.png')
-
-# Resize tower image
-tower_img = pygame.transform.scale(tower_img, (80, 80))  # Resize tower image
+# Load images
+background_img = pygame.image.load('assets/map_1.png')
+background_img = pygame.transform.scale(background_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
 
 # FPS and clock
 FPS = 60
-clock = pygame.time.Clock()  # Create a clock object to manage FPS
+clock = pygame.time.Clock()
 
 # Bloon Class (Enemy)
 class Bloon:
     def __init__(self, path):
-        self.image = bloon_img
+        self.image = pygame.image.load('assets/bloon.png')
         self.rect = self.image.get_rect()
         self.rect.center = path[0]
         self.path = path
@@ -41,7 +39,6 @@ class Bloon:
         self.health = 100
     
     def move(self):
-        # Move the bloon along the path
         if self.path_pos < len(self.path) - 1:
             target_x, target_y = self.path[self.path_pos + 1]
             dx, dy = target_x - self.rect.centerx, target_y - self.rect.centery
@@ -51,62 +48,11 @@ class Bloon:
                 self.rect.centerx += dx * self.speed
                 self.rect.centery += dy * self.speed
 
-            # Check if close to next point
             if dist < 5:
                 self.path_pos += 1
 
     def draw(self):
-        screen.blit(self.image, self.rect.topleft)  # Draw the bloon on the screen
-
-# Dart Class (Projectile)
-dart_img = pygame.image.load('assets/dart.png')
-dart_img = pygame.transform.scale(dart_img, (20, 35))  # Resize dart image
-
-class Dart:
-    def __init__(self, x, y, target):
-        self.image = dart_img
-        self.rect = self.image.get_rect(center=(x, y))
-        self.speed = 5
-        self.target = target
-        self.dx, self.dy = self.calculate_velocity()  # Calculate initial velocity
-
-    def calculate_velocity(self):
-        dx, dy = self.target.rect.centerx - self.rect.centerx, self.target.rect.centery - self.rect.centery
-        dist = math.sqrt(dx**2 + dy**2)
-        if dist > 0:
-            return dx / dist * self.speed, dy / dist * self.speed
-        return 0, 0
-
-    def move(self):
-        self.rect.x += self.dx
-        self.rect.y += self.dy
-
-    def draw(self):
-        screen.blit(self.image, self.rect.topleft)  # Draw the dart on the screen
-
-# Tower Class
-class Tower:
-    def __init__(self, x, y):
-        self.image = tower_img
-        self.rect = self.image.get_rect()
-        self.rect.center = (x, y)
-        self.range = 100
-        self.damage = 50
-        self.cooldown = 30  # 0.5 seconds at 60 FPS
-        self.last_shot = 0
-
-    def shoot(self, bloons, darts):
-        # Shoot at the first bloon in range
-        for bloon in bloons:
-            dist = math.sqrt((bloon.rect.centerx - self.rect.centerx)**2 + (bloon.rect.centery - self.rect.centery)**2)
-            if dist < self.range and self.last_shot >= self.cooldown:
-                darts.append(Dart(self.rect.centerx, self.rect.centery, bloon))  # Create a new dart
-                self.last_shot = 0
-                break
-        self.last_shot += 1
-
-    def draw(self):
-        screen.blit(self.image, self.rect.topleft)  # Draw the tower on the screen
+        screen.blit(self.image, self.rect.topleft)
 
 # Game Class
 class Game:
@@ -117,66 +63,177 @@ class Game:
         self.round = 1
         self.lives = 100
         self.money = 500
-        # Example path starting from the bottom left TODO: change paths for different maps. Will be stored as json files
-        self.path = [(4, 400), (171, 400), (171, 184), (362, 184), (362, 608), (97, 608), (97, 771), (757, 771), (757, 526), (537, 526), (537, 326), (755, 326), (755, 91), (471, 91), (471, 4)]
+        self.path = [(4, 400), (171, 400), (171, 184), (362, 184), (362, 608), 
+                     (97, 608), (97, 771), (757, 771), (757, 526), (537, 526), 
+                     (537, 326), (755, 326), (755, 91), (471, 91), (471, 4)]
         self.original_path = self.path.copy()
+        self.sidebar = TowerSidebar(SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.selected_tower = None
+        self.dragging_tower = None
+        
+        # Wave spawning variables
+        self.bloons_per_wave = 5
+        self.bloons_spawned = 0
+        self.spawn_delay = 120  # 2 seconds at 60 FPS
+        self.spawn_timer = 0
+        self.wave_in_progress = False
+        self.wave_complete = False
+        self.wave_start_delay = 180  # 3 seconds between waves
+
+    def start_wave(self):
+        if not self.wave_in_progress and not self.wave_complete:
+            self.wave_in_progress = True
+            self.bloons_spawned = 0
+            self.spawn_timer = 0
+        elif self.wave_complete:
+            self.round += 1
+            self.bloons_per_wave = 5 + (self.round - 1) * 2  # Increase bloons per wave
+            self.wave_in_progress = True
+            self.wave_complete = False
+            self.bloons_spawned = 0
+            self.spawn_timer = 0
 
     def spawn_bloon(self):
-        # Spawn a bloon every few seconds
-        if len(self.bloons) < self.round * 5:
-            self.bloons.append(Bloon(self.path))  # Add a new bloon to the list
+        if self.wave_in_progress:
+            if self.bloons_spawned < self.bloons_per_wave:
+                if self.spawn_timer >= self.spawn_delay:
+                    self.bloons.append(Bloon(self.path))
+                    self.bloons_spawned += 1
+                    self.spawn_timer = 0
+                else:
+                    self.spawn_timer += 1
+            elif len(self.bloons) == 0:  # All bloons from wave are gone
+                self.wave_in_progress = False
+                self.wave_complete = True
+                self.spawn_timer = 0
 
     def update_bloons(self):
         for bloon in self.bloons[:]:
             bloon.move()
             if bloon.path_pos >= len(bloon.path) - 1:
                 self.bloons.remove(bloon)
-                self.lives -= 1  # Decrease lives if bloon reaches the end
+                self.lives -= 1
             if bloon.health <= 0:
                 self.bloons.remove(bloon)
-                self.money += 1  # Increase money if bloon is destroyed
+                self.money += 1
 
     def update_towers(self):
         for tower in self.towers:
-            tower.shoot(self.bloons, self.darts)  # Towers shoot at bloons
+            tower.shoot(self.bloons, self.darts)
 
     def update_darts(self):
         for dart in self.darts[:]:
             dart.move()
+            if not dart.active:
+                self.darts.remove(dart)
+                continue
+                
             for bloon in self.bloons:
                 if dart.rect.colliderect(bloon.rect):
-                    bloon.health -= 50  # Decrease bloon health if hit by dart
+                    bloon.health -= 50
                     self.darts.remove(dart)
                     break
 
     def draw(self):
-        screen.blit(background_img, (0, 0))  # Draw the background
+        screen.blit(background_img, (0, 0))
 
+        # Draw path
+        for i in range(len(self.path) - 1):
+            pygame.draw.line(screen, BLUE, self.path[i], self.path[i + 1], 5)
+
+        # Draw game objects
         for bloon in self.bloons:
             bloon.draw()
 
         for tower in self.towers:
-            tower.draw()
+            tower.draw(screen)
 
         for dart in self.darts:
-            dart.draw()
+            dart.draw(screen)
 
-        # Draw path (for demonstration)
-        for i in range(len(self.path) - 1):
-            pygame.draw.line(screen, BLUE, self.path[i], self.path[i + 1], 5)
+        # Draw sidebar
+        self.sidebar.draw(screen)
 
-        # Draw money and health counters
+        # Draw UI elements
         font = pygame.font.SysFont(None, 36)
-        money_text = font.render(f"Money: {self.money}", True, BLACK)
+        money_text = font.render(f"Money: ${self.money}", True, BLACK)
         lives_text = font.render(f"Lives: {self.lives}", True, BLACK)
+        round_text = font.render(f"Round: {self.round}", True, BLACK)
         screen.blit(money_text, (10, 10))
         screen.blit(lives_text, (10, 50))
+        screen.blit(round_text, (10, 90))
+
+        # Draw wave status
+        if self.wave_complete:
+            wave_text = font.render("Press SPACE for next wave", True, (0, 255, 0))
+            screen.blit(wave_text, (SCREEN_WIDTH // 2 - 150, 10))
+        elif not self.wave_in_progress:
+            wave_text = font.render("Press SPACE to start wave", True, (255, 255, 0))
+            screen.blit(wave_text, (SCREEN_WIDTH // 2 - 150, 10))
+
+    def handle_events(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # Left click
+                pos = pygame.mouse.get_pos()
+                
+                # Check if clicking in sidebar
+                if self.sidebar.rect.collidepoint(pos):
+                    tower = self.sidebar.handle_mouse_down(pos)
+                    if tower and self.money >= tower.cost:
+                        self.dragging_tower = tower
+                else:
+                    # Check if clicking on existing tower
+                    for tower in self.towers:
+                        if tower.rect.collidepoint(pos):
+                            # Deselect other towers
+                            for t in self.towers:
+                                t.is_selected = False
+                            tower.is_selected = True
+                            self.selected_tower = tower
+                            break
+                    else:
+                        # Deselect all towers if clicking empty space
+                        for tower in self.towers:
+                            tower.is_selected = False
+                        self.selected_tower = None
+
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1 and self.dragging_tower:
+                pos = pygame.mouse.get_pos()
+                if not self.sidebar.rect.collidepoint(pos):
+                    # Place tower if we have enough money
+                    if self.money >= self.dragging_tower.cost:
+                        self.money -= self.dragging_tower.cost
+                        self.towers.append(self.dragging_tower)
+                self.dragging_tower = None
+
+        elif event.type == pygame.MOUSEMOTION:
+            if self.dragging_tower:
+                self.dragging_tower.rect.center = pygame.mouse.get_pos()
+
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:  # Right click
+            if self.selected_tower:
+                action = self.selected_tower.handle_click(event.pos)
+                if action == "upgrade":
+                    if self.money >= self.selected_tower.upgrade_cost:
+                        if self.selected_tower.upgrade():
+                            self.money -= self.selected_tower.upgrade_cost
+                elif action == "sell":
+                    self.money += self.selected_tower.sell()
+                    self.towers.remove(self.selected_tower)
+                    self.selected_tower = None
+
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                self.start_wave()
 
     def resize(self, new_width, new_height):
         global SCREEN_WIDTH, SCREEN_HEIGHT
         SCREEN_WIDTH, SCREEN_HEIGHT = new_width, new_height
-        screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)  # Adjust screen size
-        self.path = [(int(x * new_width / 800), int(y * new_height / 600)) for x, y in self.original_path]  # Adjust path
+        screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
+        self.path = [(int(x * new_width / 800), int(y * new_height / 600)) 
+                    for x, y in self.original_path]
+        self.sidebar = TowerSidebar(SCREEN_WIDTH, SCREEN_HEIGHT)
 
 # Main Game Loop
 def main():
@@ -194,18 +251,17 @@ def main():
         elif current_screen == "map_selector":
             map_selector.draw(screen)
         else:
-            game.spawn_bloon()  # Spawn new bloons
-            game.update_bloons()  # Update bloon positions and states
-            game.update_towers()  # Update tower actions
-            game.update_darts()  # Update dart positions and collisions
-            game.draw()  # Draw all game elements
+            game.spawn_bloon()
+            game.update_bloons()
+            game.update_towers()
+            game.update_darts()
+            game.draw()
 
-        # Event Handling
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False  # Exit the game loop
+                running = False
             elif event.type == pygame.VIDEORESIZE:
-                game.resize(event.w, event.h)  # Handle screen resize
+                game.resize(event.w, event.h)
             elif current_screen == "main_menu":
                 result = main_menu.handle_events(event)
                 if result == "map_selector":
@@ -216,25 +272,18 @@ def main():
                     current_screen = "main_menu"
                 elif result and result.startswith("map_"):
                     current_screen = "game"
-                    # Load the selected map here
             else:
-                # Mouse click to place a tower
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1:
-                        x, y = pygame.mouse.get_pos()
-                        game.towers.append(Tower(x, y))  # Place a new tower
+                game.handle_events(event)
 
-        # Update sliders for smooth animation
         if current_screen == "main_menu":
             main_menu.settings_menu.update()
         elif current_screen == "map_selector":
-            # Update any sliders in the map selector if needed
             pass
 
         pygame.display.update()
-        clock.tick(FPS)  # Maintain the frame rate
+        clock.tick(FPS)
 
     pygame.quit()
 
 if __name__ == "__main__":
-    main()  # Start the game
+    main()
