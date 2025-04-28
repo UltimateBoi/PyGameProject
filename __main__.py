@@ -8,6 +8,9 @@ from ui import TowerSidebar
 # Initialize Pygame
 pygame.init()
 
+#TODO: Optimize the game as a whole, currently adding a lot of objects to the screen at once or even just a few causes FPS (ticks per second) to drop significantly. As a result, game is almost unplayable and runs extremely slow rounds.
+#TODO: Fix projectile rendering and collisions to have a radius / detect edge of the projectile hitting the edge of bloon instead of the center of the projectile hitting the center of the bloon.
+
 # Screen settings
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
